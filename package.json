@@ -1,0 +1,16 @@
+{
+  "name": "streamSimulator",
+  "version": "0.0.1",
+  "author": "Fletcher Riehl",
+  "description": "An attempt to simulate streaming data",
+  "dependencies": {
+    "connect": "*",
+    "redis":"*",
+    "kafka": "*",
+    "serve-static": "*",
+    "node-xml": "*",
+    "redis": "*",
+    "csv-parse": "*",
+    "moment": "*"
+  }
+}
