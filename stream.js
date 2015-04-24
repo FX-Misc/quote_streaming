@@ -5,15 +5,15 @@ var stream = function(socket) {
   client.on('error', function(error) {
     console.log(error.message)
   });
+  if (client) console.log("connected to redis");
 
   function send(obj, start) {
-      socket.write(JSON.stringify(obj), start)
+      socket.write(JSON.stringify(obj)+'\r\n');
   }
 
-  var i = 0
   var startTime = 1294075819;
   //Set end time to end of day?
-  var endTime = startTime + 20;
+  var endTime = startTime + 200;
 
   function fetchData() {
     if (startTime < endTime) {
@@ -27,7 +27,7 @@ var stream = function(socket) {
       console.log("no more data");
     }
   }
-  var emitData = setInterval(fetchData, 100);
+  var emitData = setInterval(fetchData, 1000);
 }
 
 exports = module.exports = stream
