@@ -1,8 +1,3 @@
-# read in as dataframe
-# average price and total volume by second calculation
-# convert time
-# create features
-# train model for each stock
 import time
 import datetime
 
@@ -32,27 +27,26 @@ def main():
     symbols = df.map(lambda x: Row(symbol=x[0], time=x[1], price=x[2], volume=x[3]))
     schemaSymbols = sqlContext.inferSchema(symbols)
     schemaSymbols.registerTempTable("symbols")
-
-    trades = sqlContext.sql("SELECT symbol, time, sum(price*volume)/sum(volume) as avg_price, sum(volume) as volume from symbols group by symbol, time")
+    
+    trades = sqlContext.sql("""SELECT symbol, time, sum(price*volume)/sum(volume) as avg_price, sum(volume) as volume from
+            symbols group by symbol, time""")
     trades = trades.map(lambda x: Row(symbol=x[0], time=x[1], price=x[2], volume=x[3]))
     schemaTrades = sqlContext.inferSchema(trades)
     schemaTrades.registerTempTable("trades")
 
     # remove limit after test
-    syms = sqlContext.sql("SELECT distinct symbol from trades LIMIT 20")
+    syms = sqlContext.sql("SELECT distinct symbol from trades")
     syms = syms.collect()
     
     df_dict = {}
-
+    print type(syms)
     for sym in syms:
-        sym = sym.symbol
-        sym_data = sqlContext.sql("SELECT symbol, time, price, volume FROM trades WHERE symbol = '{}'".format(sym))
-
+        sym = sym.symbol.strip()
+        print sym
+        sym_data = sqlContext.sql("SELECT symbol, time, price, volume FROM trades WHERE symbol = '{}' ORDER BY symbol, time".format(sym))
+        
         sym_data = sym_data.collect()
-
-        # check if there are at least a threshold of trades
-        if len(sym_data) < 10000:
-            break
+        print len(sym_data)
         sym_df = pd.DataFrame(sym_data, columns=['symbol', 'time', 'price', 'volume'])
         for i in range(1,11):
             sym_df['price_t-'+str(i)] = sym_df['price'].shift(i)
