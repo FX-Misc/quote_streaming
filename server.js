@@ -4,8 +4,7 @@ var net = require('net'),
 
 var server = net.createServer(function(socket) {
   socket.write('Echo server \r\n');
-  //TODO: wait to load data before streaming...
-  //TODO: should the client have to ask to load data? stream data?
+    
   //load();
   stream(socket);
   

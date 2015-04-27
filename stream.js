@@ -1,15 +1,11 @@
 var stream = function(socket) {
-  console.log("Subscribing to topic");
+  console.log("Beginning Stream");
 
   var client = redis.createClient()
   client.on('error', function(error) {
     console.log(error.message)
   });
   if (client) console.log("connected to redis");
-
-  function send(obj, start) {
-      socket.write(JSON.stringify(obj)+'\r\n');
-  }
 
   var startTime = 1294075819;
   //Set end time to end of day?
@@ -18,7 +14,13 @@ var stream = function(socket) {
   function fetchData() {
     if (startTime < endTime) {
       client.hgetall('test:'+startTime, function(err, obj) {
-        send(obj, startTime);
+        for (var k in obj) {
+         
+          var data = obj[k].split(':');
+          var price = data[0];
+          var volume = data[1];
+          socket.write(JSON.stringify({"symbol": k, "price": price, "volume": volume})+'\r\n');
+        }
       });
       startTime++;
     }

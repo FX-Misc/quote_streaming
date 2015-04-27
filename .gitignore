@@ -1,2 +1,5 @@
 archive
+node_module
+*.csv
+*.rdb
 node_modules
