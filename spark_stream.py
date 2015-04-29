@@ -5,9 +5,9 @@ import json
 
 def main():
     sym_dict = {}
-    conf = SparkConf().setAppName("symbols")
+    conf = SparkConf().setAppName("symbol stream")
     sc = SparkContext(conf=conf)
-    ssc = StreamingContext(sc, 1)
+    ssc = StreamingContext(sc, .1)
 
     lines = ssc.socketTextStream("localhost", 1337)
     

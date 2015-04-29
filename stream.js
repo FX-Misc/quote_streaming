@@ -9,7 +9,7 @@ var stream = function(socket) {
 
   var startTime = 1294075819;
   //Set end time to end of day?
-  var endTime = startTime + 200;
+  var endTime = startTime + 2000;
 
   function fetchData() {
     if (startTime < endTime) {
@@ -29,7 +29,7 @@ var stream = function(socket) {
       console.log("no more data");
     }
   }
-  var emitData = setInterval(fetchData, 1000);
+  var emitData = setInterval(fetchData, 10);
 }
 
 exports = module.exports = stream
