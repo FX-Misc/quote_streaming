@@ -15,18 +15,25 @@ def transform_time(dys, t):
     days = epoch + datetime.timedelta(days=int(dys))
     datestring = '{}-{}-{}T'.format(days.year, days.month, days.day)
     ds = datestring + t
-    return time.mktime(datetime.datetime.strptime(ds, '%Y-%m-%dT%H:%M:%S').timetuple())
+    i = 1
+    try: 
+        dte = time.mktime(datetime.datetime.strptime(ds, '%Y-%m-%dT%H:%M:%S').timetuple())
+    except ValueError:
+        dte = float(i)
+        i += 1
+    return dte
 
 
 def main():
-    conf = SparkConf().setAppName('symbols')
+    conf = SparkConf().setAppName('symbols').set("spark.storage.blockManagerSlaveTimeoutMs", 60000)
     sc = SparkContext(conf=conf)
 
     sqlContext = SQLContext(sc)
-    data = sc.textFile("file:///root/quote_streaming/data/rawdata.csv").map(lambda line: line.split(","))
+    data = sc.textFile("hdfs://spark1:9000/user/convert_out/ct_20110218.csv", 200).map(lambda line: line.split(",")).cache()
     rows = data.filter(lambda x: x[0] != 'SYMBOL')
     df = rows.map(lambda p: (p[0].strip(), transform_time(p[1].strip(), p[2].strip()), float(p[3].strip()), float(p[4].strip()))) 
-    
+    #df = df.filter(lambda x: x[1] != 0)    
+
     symbols = df.map(lambda x: Row(symbol=x[0], time=x[1], price=x[2], volume=x[3]))
     schemaSymbols = sqlContext.inferSchema(symbols)
     schemaSymbols.registerTempTable("symbols")
