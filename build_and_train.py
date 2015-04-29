@@ -118,14 +118,20 @@ def transform_time(dys, t):
     days = epoch + datetime.timedelta(days=int(dys))
     datestring = '{}-{}-{}T'.format(days.year, days.month, days.day)
     ds = datestring + t
-    return time.mktime(datetime.datetime.strptime(ds, '%Y-%m-%dT%H:%M:%S').timetuple())
+    i = 1
+    try:
+        dte = time.mktime(datetime.datetime.strptime(ds, '%Y-%m-%dT%H:%M:%S').timetuple())
+    except ValueError:
+        dte = float(i)
+        i += 1
+    return dte
 
 def main():
     conf = SparkConf().setAppName('buildtrain')
     sc = SparkContext(conf=conf)
 
     sqlContext = SQLContext(sc)
-    data = sc.textFile("file:///root/quote_streaming/data/rawdata.csv").map(lambda line: line.split(","))
+    data = sc.textFile("hdfs://spark1:9000/user/convert_out/ct_20110218.csv", 200).map(lambda line: line.split(","))
     rows = data.filter(lambda x: x[0] != 'SYMBOL')
     df = rows.map(lambda p: (p[0].strip(), transform_time(p[1].strip(), p[2].strip()), float(p[3].strip()), float(p[4].strip())))
 
