@@ -3,6 +3,7 @@ import datetime
 import config
 
 import sys
+import csv
 
 from pyspark import SparkContext, SparkConf
 from pyspark.sql import SQLContext, Row
@@ -68,13 +69,18 @@ def getPredictions(singleXtest):
 
 #Iterates through test vectors, predicting output category for each one
 #Then compares to true labels and prints evaluation metrics
-def handlePrediction(model,Xtest,Ytest):
-    predicted = map(getPredictions,Xtest)
+def handlePrediction(sym,model,Xtest,Ytest):
+    predicted = map(model.predict,Xtest)
 
     print "multiclass"
     print classification_report(Ytest, predicted)
 
     print "overall accuracy: " + str(accuracy_score(Ytest, predicted, normalize=True))
+
+    with open('/root/quote_streaming/stock_predictions.csv', 'a+') as fp:
+        writer = csv.writer(fp, delimiter=',', quoting=csv.QUOTE_MINIMAL)
+        row = [[sym, str(accuracy_score(Ytest, predicted, normalize=True))]]
+        writer.writerows(row)
 
 #Builds a single LabeledPoint out of tuple of an x row and corresponding y value
 #Spark requires a certain format--hence transposing and sorting
@@ -92,7 +98,7 @@ def buildLabeledPoints(X,Y):
     return rdd
 
 
-def train(dfTrain):
+def train(sym, dfTrain):
     Y = buildY(dfTrain)
 
     X = buildX(dfTrain)
@@ -108,7 +114,7 @@ def train(dfTrain):
     model = buildModel(trainrdd)
     print "model built..........."
 
-    handlePrediction(model,Xtest,Ytest)
+    handlePrediction(sym, model,Xtest,Ytest)
     print "prediction handled..........."
 
 
@@ -121,9 +127,6 @@ def transform_time(dys, t):
     return time.mktime(datetime.datetime.strptime(ds, '%Y-%m-%dT%H:%M:%S').timetuple())
 
 def main():
-    conf = SparkConf().setAppName('buildtrain')
-    sc = SparkContext(conf=conf)
-
     sqlContext = SQLContext(sc)
     data = sc.textFile("file:///root/quote_streaming/data/rawdata.csv").map(lambda line: line.split(","))
     rows = data.filter(lambda x: x[0] != 'SYMBOL')
@@ -140,7 +143,7 @@ def main():
     schemaTrades.registerTempTable("trades")
 
     # remove limit after test
-    syms = sqlContext.sql("SELECT distinct symbol from trades where symbol = 'C'")
+    syms = sqlContext.sql("SELECT distinct symbol from trades")
     syms = syms.collect()
 
     df_dict = {}
@@ -153,31 +156,45 @@ def main():
         sym_data = sym_data.collect()
         print len(sym_data)
         sym_df = pd.DataFrame(sym_data, columns=['symbol', 'time', 'price', 'volume'])
+
+        # Predictive model did not like original volume values, so use rescaled value
+        sym_df['volume10k'] = np.round(sym_df['volume'] / 10000, 3)
+
         for i in range(1,11):
             sym_df['price_t-'+str(i)] = sym_df['price'].shift(i)
 
         for i in range(1,11):
-            sym_df['volume_t-'+str(i)] = sym_df['volume'].shift(i)
+            #sym_df['volume_t-'+str(i)] = sym_df['volume'].shift(i)
+            sym_df['volume10k_t-'+str(i)] = sym_df['volume10k'].shift(i)
 
         # add labels for price and volume
         sym_df['price_label'] = sym_df['price'].shift(-1)
         sym_df['volume_label'] = sym_df['volume'].shift(-1)
 
-        sym_df['price_label'] = np.where(sym_df.price_label > sym_df.price, 1, 0)
-        sym_df['volume_label'] = np.where(sym_df.volume_label > sym_df.volume, 1, 0)
-
+        sym_df['price_dir_label'] = np.where(sym_df.price_label > sym_df.price, 1, 0)
+        sym_df['volume_dir_label'] = np.where(sym_df.volume_label > sym_df.volume, 1, 0)
 
         sym_df = sym_df.dropna()
         df_dict[sym] = sym_df
         print sym_df
 
-        train(sym_df)
+        train(sym,sym_df)
 
     # print for testing
     print len(df_dict)
     print df_dict.keys()
     print type(df_dict[sym])
-    sc.stop()
 
 if __name__ == '__main__':
+    begintime = time.time()
+
+    conf = SparkConf().setAppName('buildtrain')
+    sc = SparkContext(conf=conf)
+
     main()
+
+    endtime = time.time()
+    totaltime = endtime-begintime
+    print "total time: " + str(totaltime)
+
+    sc.stop()
